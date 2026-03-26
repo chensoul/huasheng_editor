@@ -1,13 +1,9 @@
-# 公众号 Markdown 编辑器
+# Markdown 排版器
 
 <div align="center">
-  <img src="logo.svg" width="120" height="120" alt="公众号 Markdown 编辑器">
-  <p>一个专为微信公众号排版优化的纯前端 Markdown 编辑器。</p>
+  <img src="logo.svg" width="120" height="120" alt="Markdown 排版器">
+  <p>一个专为微信公众号排版优化的纯前端编辑器。</p>
 </div>
-
-## 在线体验
-
-https://editor.huasheng.ai/
 
 ## 功能概览
 
@@ -24,13 +20,13 @@ https://editor.huasheng.ai/
 
 ### 通用基础
 
-- `wechat-default` / 默认公众号风格
-- `wechat-tech` / 技术风格
-- `wechat-deepread` / 深度阅读
+- `default` / 公众号风格
+- `tech` / 技术风格
+- `deepread` / 深度阅读
 
 ### 国际媒体
 
-- `wechat-nyt` / 纽约时报
+- `nyt` / 纽约时报
 - `nikkei` / Nikkei 日経
 - `atlantic-feature` / Atlantic 特稿
 - `monocle-brief` / Monocle 简报
@@ -96,17 +92,15 @@ docker run --rm -p 8080:80 huasheng-editor
 
 ```text
 huasheng_editor/
-├── index.html        # 页面结构与预览区样式
+├── index.html        # 页面结构
+├── app.css           # 编辑器外壳（布局、工具栏、侧栏等）样式
 ├── app.js            # 编辑器逻辑、渲染、复制、图片处理
 ├── styles.js         # 13 个主题的内联样式定义
-├── simple-test.md    # 手工验证用示例文档
 ├── Dockerfile        # 静态部署镜像
 ├── README.md
-├── CONTRIBUTING.md
 ├── CHANGELOG.md
 ├── LICENSE
 ├── logo.svg
-├── icon.svg
 └── favicon.svg
 ```
 
@@ -139,7 +133,7 @@ huasheng_editor/
 1. 直接修改 [styles.js](styles.js) 中对应主题
 2. 保持 `container`、标题、正文、列表、引用、代码、表格、图片等标签定义完整
 3. 优先保证公众号复制结果，再看预览效果
-4. 用 `simple-test.md` 检查常见标签是否一致
+4. 用编辑器内置示例内容检查常见标签是否一致
 
 ### 验证建议
 
@@ -149,7 +143,7 @@ huasheng_editor/
 
 ## 贡献
 
-欢迎提交 Issue 和 Pull Request。具体流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+欢迎提交 Issue 和 Pull Request。
 
 ## 许可证
 

@@ -1,11 +1,3 @@
-/**
- * 在线编辑器 - 独立页面
- * 基于 app.js 的 STYLES，复用样式系统
- */
-
-/**
- * 图片存储管理器 - 使用 IndexedDB 持久化存储压缩后的图片
- */
 class ImageStore {
   constructor() {
     this.dbName = 'WechatEditorImages';
@@ -558,9 +550,7 @@ const editorApp = createApp({
     return {
       markdownInput: '',
       renderedContent: '',
-      currentStyle: 'wechat-default',
-      copySuccess: false,
-      starredStyles: [],
+      currentStyle: 'default',
       toast: {
         show: false,
         message: '',
@@ -579,64 +569,25 @@ const editorApp = createApp({
       previewMode: 'wechat',  // 预览模式：'wechat' 或 'xiaohongshu'
       xiaohongshuImages: [],  // 生成的小红书图片数组
       xiaohongshuGenerating: false,  // 是否正在生成小红书图片
-      // 右下角浮动广告
-      floatingAd: {
-        ads: [
-          {
-            id: 'yinhe',
-            icon: '🎬',
-            title: '银河录像局',
-            subtitle: 'ChatGPT/Netflix/Claude 一站合租',
-            tag: '93折',
-            tagColor: 'orange',
-            link: 'https://nf.video/o9jj0s',
-            coupon: 'huasheng'
-          },
-          {
-            id: 'huanqiu',
-            icon: '🌍',
-            title: '环球巴士',
-            subtitle: 'ChatGPT Plus合租 35元/月',
-            tag: '热门',
-            tagColor: 'blue',
-            link: 'https://universalbus.cn/?s=5HCba2gPfO',
-            coupon: null
-          },
-          {
-            id: 'zsxq',
-            icon: '🔥',
-            title: 'AI编程知识星球',
-            subtitle: '1500+人已加入 / 限量30元券',
-            tag: '限时335元',
-            tagColor: 'purple',
-            link: 'https://t.zsxq.com/K3vsN',
-            coupon: '30元优惠券'
-          }
-        ],
-        isExpanded: false,
-        isVisible: false,
-        currentIndex: 0
-      },
-      // 文章历史记录
-      articleHistory: [],           // 历史文章列表
       showHistoryPanel: false,      // 侧边栏显示状态
-      currentArticleId: null,       // 当前编辑的文章ID（用于防止重复保存）
-      copyXSuccess: false            // 复制到 X 成功状态
+      drafts: [],                   // 自动保存草稿
+      showDraftPanel: false,        // 草稿侧边栏
+      currentDraftId: null,         // 当前草稿 ID
+      maxDrafts: 10                 // 最多保留 10 篇草稿
     };
   },
 
   async mounted() {
-    // 加载星标样式
-    this.loadStarredStyles();
-
     // 加载用户偏好设置
     this.loadUserPreferences();
 
-    // 加载文章历史记录
-    this.loadArticleHistory();
+    // 加载草稿
+    this.loadDrafts();
 
-    // 初始化浮动广告
-    this.initFloatingAd();
+    // 如果有当前草稿，优先恢复工作态
+    if (this.currentDraftId) {
+      this.restoreDraft(this.currentDraftId, { silent: true, closePanel: false });
+    }
 
     // 初始化图片存储管理器
     this.imageStore = new ImageStore();
@@ -694,24 +645,78 @@ const editorApp = createApp({
     this.$nextTick(() => {
       this.renderMarkdown();
     });
+
+    this._onGlobalKeydown = (e) => {
+      if (e.key !== 'Escape') return;
+      if (this.showHistoryPanel || this.showDraftPanel) {
+        this.closeSidePanels();
+      }
+    };
+    window.addEventListener('keydown', this._onGlobalKeydown);
   },
 
   beforeUnmount() {
-    this.stopFloatingAdRotation();
+    if (this._saveTimeout) {
+      clearTimeout(this._saveTimeout);
+    }
+    if (this._draftSaveTimeout) {
+      clearTimeout(this._draftSaveTimeout);
+    }
+    if (this._onGlobalKeydown) {
+      window.removeEventListener('keydown', this._onGlobalKeydown);
+    }
+    if (this._toastTimer) {
+      clearTimeout(this._toastTimer);
+      this._toastTimer = null;
+    }
   },
 
   computed: {
-    currentFloatingAd() {
-      if (!this.floatingAd || !this.floatingAd.ads || this.floatingAd.ads.length === 0) {
-        return {
-          icon: '',
-          title: '',
-          tag: '',
-          tagColor: 'orange'
-        };
-      }
+    currentDraft() {
+      return this.drafts.find(draft => draft.id === this.currentDraftId) || null;
+    },
 
-      return this.floatingAd.ads[this.floatingAd.currentIndex] || this.floatingAd.ads[0];
+    currentDraftVersions() {
+      if (!this.currentDraft || !Array.isArray(this.currentDraft.versions)) {
+        return [];
+      }
+      return this.currentDraft.versions;
+    },
+
+    orderedStyleEntries() {
+      const preferredOrder = [
+        'default',
+        'tech',
+        'deepread',
+        'latepost-depth',
+        'sspai-column',
+        'renwu-profile',
+        'biz-insight',
+        'wechat-nyt',
+        'nikkei',
+        'atlantic-feature',
+        'monocle-brief',
+        'anthropic',
+        'warm-notes'
+      ];
+
+      const seen = new Set();
+      const ordered = [];
+
+      preferredOrder.forEach((key) => {
+        if (STYLES[key]) {
+          ordered.push([key, STYLES[key]]);
+          seen.add(key);
+        }
+      });
+
+      Object.entries(STYLES).forEach(([key, value]) => {
+        if (!seen.has(key)) {
+          ordered.push([key, value]);
+        }
+      });
+
+      return ordered;
     }
   },
 
@@ -722,6 +727,7 @@ const editorApp = createApp({
       }
       // 保存样式偏好
       this.saveUserPreferences();
+      this.scheduleDraftAutoSave();
     },
     markdownInput(newVal, oldVal) {
       if (this.md) {
@@ -733,28 +739,277 @@ const editorApp = createApp({
         this.saveUserPreferences();
       }, 1000); // 1秒后保存
 
-      // 当内容被清空时，重置当前文章ID（下次保存会创建新文章）
-      if (!newVal || !newVal.trim()) {
-        this.currentArticleId = null;
-      }
-      // 当从空内容粘贴大量内容时，也视为新文章
-      else if ((!oldVal || oldVal.trim().length < 10) && newVal.trim().length > 100) {
-        this.currentArticleId = null;
-      }
+      this.scheduleDraftAutoSave();
     }
   },
 
   methods: {
-    loadStarredStyles() {
+    loadDrafts() {
       try {
-        const saved = localStorage.getItem('starredStyles');
-        if (saved) {
-          this.starredStyles = JSON.parse(saved);
+        const saved = localStorage.getItem('editorDrafts');
+        if (!saved) {
+          this.drafts = [];
+          this.currentDraftId = null;
+          return;
         }
+
+        const data = JSON.parse(saved);
+        this.drafts = Array.isArray(data?.drafts)
+          ? data.drafts.map(draft => this.normalizeDraft(draft))
+          : [];
+        this.currentDraftId = data?.currentDraftId || null;
       } catch (error) {
-        console.error('加载星标样式失败:', error);
-        this.starredStyles = [];
+        console.error('加载草稿失败:', error);
+        this.drafts = [];
+        this.currentDraftId = null;
       }
+    },
+
+    saveDraftsToStorage() {
+      try {
+        localStorage.setItem('editorDrafts', JSON.stringify({
+          version: 1,
+          currentDraftId: this.currentDraftId,
+          drafts: this.drafts
+        }));
+      } catch (error) {
+        console.error('保存草稿失败:', error);
+      }
+    },
+
+    extractDraftTitle(markdownContent) {
+      return this.extractTitle(markdownContent || '') || '未命名草稿';
+    },
+
+    createDraftVersion({ content, style, title, timestamp }) {
+      return {
+        id: `version-${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+        title,
+        content,
+        style,
+        savedAt: timestamp
+      };
+    },
+
+    normalizeDraft(draft) {
+      const normalizedStyle = draft?.style && STYLES[draft.style] ? draft.style : 'default';
+      const title = this.extractDraftTitle(draft?.content || '');
+      const updatedAt = draft?.updatedAt || draft?.createdAt || Date.now();
+      const versions = Array.isArray(draft?.versions) && draft.versions.length > 0
+        ? draft.versions
+            .map(version => ({
+              id: version.id || `version-${version.savedAt || updatedAt}`,
+              title: version.title || title,
+              content: version.content || draft.content || '',
+              style: version.style && STYLES[version.style] ? version.style : normalizedStyle,
+              savedAt: version.savedAt || updatedAt
+            }))
+            .sort((a, b) => b.savedAt - a.savedAt)
+        : [
+            this.createDraftVersion({
+              content: draft?.content || '',
+              style: normalizedStyle,
+              title,
+              timestamp: updatedAt
+            })
+          ];
+
+      return {
+        id: draft?.id || `draft-${updatedAt}`,
+        title,
+        content: draft?.content || '',
+        style: normalizedStyle,
+        createdAt: draft?.createdAt || updatedAt,
+        updatedAt,
+        versions
+      };
+    },
+
+    getStyleOptionLabel(styleKey) {
+      const style = STYLES[styleKey];
+      if (!style) return styleKey;
+      return `${style.name}`;
+    },
+
+    scheduleDraftAutoSave() {
+      if (this._draftSaveTimeout) {
+        clearTimeout(this._draftSaveTimeout);
+      }
+
+      if (!this.markdownInput || !this.markdownInput.trim()) {
+        return;
+      }
+
+      this._draftSaveTimeout = setTimeout(() => {
+        this.saveCurrentDraft({ silent: true });
+      }, 2000);
+    },
+
+    saveCurrentDraft(options = {}) {
+      const { silent = false } = options;
+      const content = this.markdownInput;
+      const versionDedupWindowMs = 60 * 1000;
+
+      if (!content || !content.trim()) {
+        return null;
+      }
+
+      const now = Date.now();
+      const title = this.extractDraftTitle(content);
+      let draftId = this.currentDraftId;
+
+      if (draftId) {
+        const existingIndex = this.drafts.findIndex(draft => draft.id === draftId);
+        if (existingIndex !== -1) {
+          const existingDraft = this.drafts[existingIndex];
+          const lastVersion = Array.isArray(existingDraft.versions) ? existingDraft.versions[0] : null;
+          const hasMeaningfulChange = !lastVersion
+            || lastVersion.content !== content
+            || lastVersion.style !== this.currentStyle;
+          existingDraft.title = title;
+          existingDraft.content = content;
+          existingDraft.style = this.currentStyle;
+          existingDraft.updatedAt = now;
+          if (!Array.isArray(existingDraft.versions)) {
+            existingDraft.versions = [];
+          }
+          if (hasMeaningfulChange) {
+            const nextVersion = this.createDraftVersion({
+              content,
+              style: this.currentStyle,
+              title,
+              timestamp: now
+            });
+            // 1 分钟内仅保留一个历史版本：新的覆盖旧的。
+            existingDraft.versions = existingDraft.versions.filter((version) => {
+              const savedAt = Number(version?.savedAt || 0);
+              return now - savedAt >= versionDedupWindowMs;
+            });
+            existingDraft.versions.unshift(nextVersion);
+            if (existingDraft.versions.length > 20) {
+              existingDraft.versions = existingDraft.versions.slice(0, 20);
+            }
+          }
+          const draft = this.drafts.splice(existingIndex, 1)[0];
+          this.drafts.unshift(draft);
+          this.saveDraftsToStorage();
+          if (!silent) {
+            this.showToast('草稿已保存', 'success');
+          } else if (hasMeaningfulChange) {
+            this.showToast('草稿已自动保存', 'processing', 1600);
+          }
+          return draft.id;
+        }
+      }
+
+      draftId = `draft-${now}-${Math.random().toString(36).slice(2, 8)}`;
+      const draft = {
+        id: draftId,
+        title: title,
+        content: content,
+        style: this.currentStyle,
+        createdAt: now,
+        updatedAt: now,
+        versions: [
+          this.createDraftVersion({
+            content,
+            style: this.currentStyle,
+            title,
+            timestamp: now
+          })
+        ]
+      };
+
+      this.currentDraftId = draftId;
+      this.drafts.unshift(draft);
+      if (this.drafts.length > this.maxDrafts) {
+        this.drafts = this.drafts.slice(0, this.maxDrafts);
+      }
+
+      this.saveDraftsToStorage();
+      if (!silent) {
+        this.showToast('草稿已保存', 'success');
+      } else {
+        this.showToast('草稿已自动保存', 'processing', 1600);
+      }
+      return draftId;
+    },
+
+    restoreDraft(draftId, options = {}) {
+      const { silent = false, closePanel = true } = options;
+      const draft = this.drafts.find(item => item.id === draftId);
+      if (!draft) {
+        if (!silent) {
+          this.showToast('草稿不存在', 'error');
+        }
+        return;
+      }
+
+      this.markdownInput = draft.content;
+      if (draft.style && STYLES[draft.style]) {
+        this.currentStyle = draft.style;
+      }
+      this.currentDraftId = draft.id;
+      this.saveDraftsToStorage();
+
+      if (closePanel) {
+        this.showDraftPanel = false;
+      }
+
+      if (!silent) {
+        this.showToast('已恢复草稿', 'success');
+      }
+    },
+
+    deleteDraft(draftId) {
+      const index = this.drafts.findIndex(draft => draft.id === draftId);
+      if (index === -1) {
+        this.showToast('草稿不存在', 'error');
+        return;
+      }
+
+      const isCurrentDraft = this.currentDraftId === draftId;
+      this.drafts.splice(index, 1);
+      if (isCurrentDraft) {
+        this.currentDraftId = null;
+      }
+      this.saveDraftsToStorage();
+      this.showToast('草稿已删除', 'success');
+    },
+
+    createNewDraft() {
+      this.currentDraftId = null;
+      this.markdownInput = '';
+      this.currentStyle = 'default';
+      this.showDraftPanel = false;
+      this.showToast('已新建草稿', 'success');
+    },
+
+    toggleDraftPanel() {
+      this.showDraftPanel = !this.showDraftPanel;
+      if (this.showDraftPanel) {
+        this.showHistoryPanel = false;
+      }
+    },
+
+    closeSidePanels() {
+      this.showDraftPanel = false;
+      this.showHistoryPanel = false;
+    },
+
+    restoreHistoryVersion(versionId) {
+      const version = this.currentDraftVersions.find(item => item.id === versionId);
+      if (!version) {
+        this.showToast('历史版本不存在', 'error');
+        return;
+      }
+
+      this.markdownInput = version.content;
+      if (version.style && STYLES[version.style]) {
+        this.currentStyle = version.style;
+      }
+      this.showHistoryPanel = false;
+      this.showToast('已恢复历史版本', 'success');
     },
 
     // 加载用户偏好设置（样式和内容）
@@ -794,88 +1049,11 @@ const editorApp = createApp({
       }
     },
 
-    // 初始化浮动广告
-    initFloatingAd() {
-      let shouldShow = true;
-      try {
-        const closed = localStorage.getItem('floatingAdClosed');
-        if (closed) {
-          const closedTime = parseInt(closed, 10);
-          if (!Number.isNaN(closedTime)) {
-            shouldShow = Date.now() - closedTime >= 24 * 60 * 60 * 1000;
-          }
-        }
-      } catch (error) {
-        console.warn('读取浮动广告状态失败:', error);
-      }
-
-      if (!shouldShow) {
-        this.floatingAd.isVisible = false;
-        return;
-      }
-
-      setTimeout(() => {
-        this.floatingAd.isVisible = true;
-      }, 3000);
-
-      this.startFloatingAdRotation();
-    },
-
-    startFloatingAdRotation() {
-      if (this.floatingAdTimer) {
-        clearInterval(this.floatingAdTimer);
-      }
-
-      if (!this.floatingAd.ads || this.floatingAd.ads.length <= 1) {
-        return;
-      }
-
-      this.floatingAdTimer = setInterval(() => {
-        if (this.floatingAd.isVisible && !this.floatingAd.isExpanded) {
-          this.floatingAd.currentIndex = (this.floatingAd.currentIndex + 1) % this.floatingAd.ads.length;
-        }
-      }, 5000);
-    },
-
-    stopFloatingAdRotation() {
-      if (this.floatingAdTimer) {
-        clearInterval(this.floatingAdTimer);
-        this.floatingAdTimer = null;
-      }
-    },
-
-    toggleFloatingAd() {
-      this.floatingAd.isExpanded = !this.floatingAd.isExpanded;
-    },
-
-    closeFloatingAd() {
-      this.floatingAd.isVisible = false;
-      try {
-        localStorage.setItem('floatingAdClosed', Date.now().toString());
-      } catch (error) {
-        console.warn('保存浮动广告状态失败:', error);
-      }
-    },
-
-    openFloatingAd(ad) {
-      if (!ad || !ad.link) {
-        return;
-      }
-
-      window.open(ad.link, '_blank', 'noopener,noreferrer');
-    },
-
-    setFloatingAdIndex(index) {
-      if (index >= 0 && index < this.floatingAd.ads.length) {
-        this.floatingAd.currentIndex = index;
-      }
-    },
-
     // 加载默认示例文章
     loadDefaultExample() {
       this.markdownInput = `![](https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=1200&h=400&fit=crop)
 
-# 公众号 Markdown 编辑器
+# Markdown 排版器
 
 欢迎使用这款专为**微信公众号**设计的 Markdown 编辑器！✨
 
@@ -1646,15 +1824,7 @@ const markdown = \`![图片](img://\${imageId})\`;
 
           await navigator.clipboard.write([clipboardItem]);
 
-          this.copySuccess = true;
-          this.showToast('复制成功', 'success');
-
-          // 自动保存到历史记录
-          this.saveToHistory();
-
-          setTimeout(() => {
-            this.copySuccess = false;
-          }, 2000);
+          this.showToast('已复制到公众号', 'success');
         } else {
           // 焦点丢失，降级到 execCommand
           console.warn('窗口失焦，使用降级复制方案');
@@ -1698,13 +1868,7 @@ const markdown = \`![图片](img://\${imageId})\`;
             })
           ]);
 
-          this.copyXSuccess = true;
-          this.showToast('已复制 X Articles 格式', 'success');
-          this.saveToHistory();
-
-          setTimeout(() => {
-            this.copyXSuccess = false;
-          }, 2000);
+          this.showToast('已复制到 X Articles', 'success');
         } else {
           console.warn('窗口失焦，使用降级复制方案');
           this.clipboardFallbackX(html);
@@ -1742,10 +1906,7 @@ const markdown = \`![图片](img://\${imageId})\`;
         document.body.removeChild(tempDiv);
 
         if (success) {
-          this.copyXSuccess = true;
-          this.showToast('已复制 X Articles 格式（降级模式）', 'success');
-          this.saveToHistory();
-          setTimeout(() => { this.copyXSuccess = false; }, 2000);
+          this.showToast('已复制到 X Articles（兼容模式）', 'success');
         } else {
           this.showToast('复制失败', 'error');
         }
@@ -1971,10 +2132,7 @@ const markdown = \`![图片](img://\${imageId})\`;
         document.body.removeChild(tempDiv);
 
         if (success) {
-          this.copySuccess = true;
-          this.showToast('复制成功（降级模式）', 'success');
-          this.saveToHistory();
-          setTimeout(() => { this.copySuccess = false; }, 2000);
+          this.showToast('已复制到公众号（兼容模式）', 'success');
         } else {
           this.showToast('复制失败', 'error');
         }
@@ -2076,49 +2234,20 @@ const markdown = \`![图片](img://\${imageId})\`;
       return null;
     },
 
-    isStyleStarred(styleKey) {
-      return this.starredStyles.includes(styleKey);
-    },
-
-    isRecommended(styleKey) {
-      // 推荐的样式
-      const recommended = ['nikkei', 'wechat-anthropic', 'wechat-nyt', 'latepost-depth', 'wechat-tech', 'sspai-column'];
-      return recommended.includes(styleKey);
-    },
-
-    toggleStarStyle(styleKey) {
-      const index = this.starredStyles.indexOf(styleKey);
-      if (index > -1) {
-        this.starredStyles.splice(index, 1);
-        this.showToast('已取消收藏', 'success');
-      } else {
-        this.starredStyles.push(styleKey);
-        this.showToast('已收藏样式', 'success');
+    showToast(message, type = 'success', durationMs) {
+      if (this._toastTimer) {
+        clearTimeout(this._toastTimer);
+        this._toastTimer = null;
       }
-      this.saveStarredStyles();
-    },
-
-    saveStarredStyles() {
-      try {
-        localStorage.setItem('starredStyles', JSON.stringify(this.starredStyles));
-      } catch (error) {
-        console.error('保存星标样式失败:', error);
-      }
-    },
-
-    getStyleName(styleKey) {
-      const style = STYLES[styleKey];
-      return style ? style.name : styleKey;
-    },
-
-    showToast(message, type = 'success') {
       this.toast.show = true;
       this.toast.message = message;
       this.toast.type = type;
-
-      setTimeout(() => {
+      const defaults = { success: 2800, error: 4000, warning: 3600, processing: 2200 };
+      const ms = typeof durationMs === 'number' ? durationMs : (defaults[type] ?? 3000);
+      this._toastTimer = setTimeout(() => {
         this.toast.show = false;
-      }, 3000);
+        this._toastTimer = null;
+      }, ms);
     },
 
     patchMarkdownScanner(md) {
@@ -3104,134 +3233,11 @@ const markdown = \`![图片](img://\${imageId})\`;
       return '无标题';
     },
 
-    // 保存当前文章到历史记录
-    saveToHistory() {
-      const content = this.markdownInput;
-      if (!content || !content.trim()) {
-        this.showToast('内容为空，无法保存', 'error');
-        return;
-      }
-
-      const title = this.extractTitle(content);
-      const now = Date.now();
-
-      // 如果有当前文章ID，直接更新该文章
-      if (this.currentArticleId) {
-        const existingIndex = this.articleHistory.findIndex(
-          article => article.id === this.currentArticleId
-        );
-
-        if (existingIndex !== -1) {
-          // 更新已存在的文章
-          this.articleHistory[existingIndex].title = title;
-          this.articleHistory[existingIndex].content = content;
-          this.articleHistory[existingIndex].style = this.currentStyle;
-          this.articleHistory[existingIndex].updatedAt = now;
-
-          // 移到最前面
-          const article = this.articleHistory.splice(existingIndex, 1)[0];
-          this.articleHistory.unshift(article);
-
-          this.saveArticleHistory();
-          this.showToast('已更新历史记录', 'success');
-          return;
-        }
-      }
-
-      // 没有当前文章ID，创建新文章
-      const newArticleId = `article-${now}-${Math.random().toString(36).substring(2, 8)}`;
-      const newArticle = {
-        id: newArticleId,
-        title: title,
-        content: content,
-        style: this.currentStyle,
-        createdAt: now,
-        updatedAt: now
-      };
-
-      // 添加到列表开头
-      this.articleHistory.unshift(newArticle);
-
-      // 设置为当前文章
-      this.currentArticleId = newArticleId;
-
-      // 限制最多 20 篇
-      if (this.articleHistory.length > 20) {
-        this.articleHistory = this.articleHistory.slice(0, 20);
-      }
-
-      // 保存到 localStorage
-      this.saveArticleHistory();
-      this.showToast('已保存到历史记录', 'success');
-    },
-
-    // 从历史记录加载文章
-    loadFromHistory(articleId) {
-      const article = this.articleHistory.find(a => a.id === articleId);
-      if (!article) {
-        this.showToast('文章不存在', 'error');
-        return;
-      }
-
-      // 恢复内容和样式
-      this.markdownInput = article.content;
-      if (article.style && STYLES[article.style]) {
-        this.currentStyle = article.style;
-      }
-
-      // 设置当前文章ID，后续编辑会更新这篇文章
-      this.currentArticleId = articleId;
-
-      // 关闭侧边栏
-      this.showHistoryPanel = false;
-
-      this.showToast('已加载文章', 'success');
-    },
-
-    // 从历史记录删除文章
-    deleteFromHistory(articleId) {
-      const index = this.articleHistory.findIndex(a => a.id === articleId);
-      if (index === -1) {
-        this.showToast('文章不存在', 'error');
-        return;
-      }
-
-      this.articleHistory.splice(index, 1);
-      this.saveArticleHistory();
-      this.showToast('已删除', 'success');
-    },
-
-    // 从 localStorage 加载历史记录
-    loadArticleHistory() {
-      try {
-        const saved = localStorage.getItem('articleHistory');
-        if (saved) {
-          const data = JSON.parse(saved);
-          if (data && Array.isArray(data.articles)) {
-            this.articleHistory = data.articles;
-          }
-        }
-      } catch (error) {
-        console.error('加载历史记录失败:', error);
-        this.articleHistory = [];
-      }
-    },
-
-    // 保存历史记录到 localStorage
-    saveArticleHistory() {
-      try {
-        const data = {
-          articles: this.articleHistory
-        };
-        localStorage.setItem('articleHistory', JSON.stringify(data));
-      } catch (error) {
-        console.error('保存历史记录失败:', error);
-        this.showToast('保存历史记录失败', 'error');
-      }
-    },
-
     // 切换历史记录侧边栏
     toggleHistoryPanel() {
+      if (!this.showHistoryPanel) {
+        this.showDraftPanel = false;
+      }
       this.showHistoryPanel = !this.showHistoryPanel;
     },
 

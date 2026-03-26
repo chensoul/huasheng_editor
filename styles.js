@@ -1,7 +1,7 @@
 // 样式配置
 const STYLES = {
   'default': {
-    name: '默认公众号风格',
+    name: '公众号风格',
     styles: {
       container: 'max-width: none; margin: 0; padding: 16px 0px 40px 0px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 15px; line-height: 1.75 !important; color: #3f3f3f !important; word-wrap: break-word;',
       h1: 'font-size: 28px; font-weight: 700; color: #2c3e50 !important; line-height: 1.3 !important; margin: 40px 0 20px; padding-bottom: 8px; border-bottom: 2px solid #3498db;',
