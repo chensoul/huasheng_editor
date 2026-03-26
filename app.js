@@ -900,9 +900,10 @@ const editorApp = createApp({
 
 ### 3. 13 种精美样式
 
-1. **经典公众号系列**：默认、技术、优雅、深度阅读
-2. **传统媒体系列**：杂志、纽约时报、金融时报、Jony Ive
-3. **现代数字系列**：Wired、Medium、Apple、Claude、AI Coder
+1. **通用基础**：默认公众号、技术、深度阅读
+2. **国际媒体**：纽约时报、Nikkei、Atlantic、Monocle
+3. **中文内容**：晚点、少数派、人物特稿、商业观察
+4. **品牌表达**：Claude、轻品牌手记
 
 ### 4. 一键复制
 
@@ -942,7 +943,7 @@ const markdown = \`![图片](img://\${imageId})\`;
 - 粘贴图片试试智能压缩功能
 - 刷新页面看看内容是否保留
 
-**🌟 开源项目**：如果觉得有用，欢迎访问 [GitHub 仓库](https://github.com/alchaincyf/huasheng_editor) 给个 Star！`;
+**🌟 开源项目**：如果觉得有用，欢迎访问 [GitHub 仓库](https://github.com/chensoul/huasheng_editor) 给个 Star！`;
     },
 
     handleFileUpload(event) {
@@ -2081,7 +2082,7 @@ const markdown = \`![图片](img://\${imageId})\`;
 
     isRecommended(styleKey) {
       // 推荐的样式
-      const recommended = ['nikkei', 'wechat-anthropic', 'wechat-ft', 'wechat-nyt', 'latepost-depth', 'wechat-tech'];
+      const recommended = ['nikkei', 'wechat-anthropic', 'wechat-nyt', 'latepost-depth', 'wechat-tech', 'sspai-column'];
       return recommended.includes(styleKey);
     },
 

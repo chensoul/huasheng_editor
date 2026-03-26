@@ -532,11 +532,13 @@
     }
 
     .preview-container {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 20px 32px 48px 32px;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 16px 16px 48px 16px;
       line-height: 1.8;
       position: relative;
+      box-sizing: border-box;
     }
 
     .preview-container.layout-mode img {
@@ -1226,7 +1228,10 @@
       }
 
       .preview-container {
-        padding: var(--space-lg) var(--space-md);
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 16px 12px 40px 12px;
       }
 
       .toast {
@@ -1266,7 +1271,10 @@
       }
 
       .preview-container {
-        padding: var(--space-xl) var(--space-lg);
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 16px 12px 40px 12px;
       }
     }
 
@@ -1566,11 +1574,11 @@
         <span class="creator-info">Created by <a href="https://huasheng.ai" target="_blank" rel="noopener noreferrer">花生</a></span>
       </div>
       <div class="header-actions">
-        <nav class="header-links">
-          <a class="header-link" href="https://www.bookai.top" target="_blank" rel="noopener noreferrer">BookAI 主站</a>
-          <a class="header-link primary" href="https://nf.video/o9jj0s" target="_blank" rel="noopener noreferrer">AI产品购买</a>
-        </nav>
-        <a href="https://github.com/alchaincyf/huasheng_editor"
+<!--        <nav class="header-links">-->
+<!--          <a class="header-link" href="https://www.bookai.top" target="_blank" rel="noopener noreferrer">BookAI 主站</a>-->
+<!--          <a class="header-link primary" href="https://nf.video/o9jj0s" target="_blank" rel="noopener noreferrer">AI产品购买</a>-->
+<!--        </nav>-->
+        <a href="https://github.com/chensoul/huasheng_editor"
            target="_blank"
            rel="noopener noreferrer"
            class="github-link"
@@ -1866,74 +1874,74 @@
     <div class="history-overlay" :class="{ visible: showHistoryPanel }" @click="toggleHistoryPanel"></div>
 
     <!-- 右下角浮动广告 -->
-    <div v-if="floatingAd.isVisible" class="floating-ad">
-      <!-- 折叠状态 -->
-      <div v-if="!floatingAd.isExpanded" class="floating-ad__collapsed" @click="toggleFloatingAd">
-        <div class="floating-ad__collapsed-content">
-          <span class="floating-ad__collapsed-icon">{{ currentFloatingAd.icon }}</span>
-          <div class="floating-ad__collapsed-text">
-            <span class="floating-ad__collapsed-title">{{ currentFloatingAd.title }}</span>
-            <span class="floating-ad__collapsed-tag" :class="`floating-ad__tag--${currentFloatingAd.tagColor}`">
-              {{ currentFloatingAd.tag }}
-            </span>
-          </div>
-        </div>
-        <button class="floating-ad__close" @click.stop="closeFloatingAd" aria-label="关闭">
-          ×
-        </button>
-      </div>
+<!--    <div v-if="floatingAd.isVisible" class="floating-ad">-->
+<!--      &lt;!&ndash; 折叠状态 &ndash;&gt;-->
+<!--      <div v-if="!floatingAd.isExpanded" class="floating-ad__collapsed" @click="toggleFloatingAd">-->
+<!--        <div class="floating-ad__collapsed-content">-->
+<!--          <span class="floating-ad__collapsed-icon">{{ currentFloatingAd.icon }}</span>-->
+<!--          <div class="floating-ad__collapsed-text">-->
+<!--            <span class="floating-ad__collapsed-title">{{ currentFloatingAd.title }}</span>-->
+<!--            <span class="floating-ad__collapsed-tag" :class="`floating-ad__tag&#45;&#45;${currentFloatingAd.tagColor}`">-->
+<!--              {{ currentFloatingAd.tag }}-->
+<!--            </span>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--        <button class="floating-ad__close" @click.stop="closeFloatingAd" aria-label="关闭">-->
+<!--          ×-->
+<!--        </button>-->
+<!--      </div>-->
 
-      <!-- 展开状态 -->
-      <div v-else class="floating-ad__panel">
-        <div class="floating-ad__panel-header">
-          <span class="floating-ad__panel-title">🔥 热门推荐</span>
-          <button class="floating-ad__collapse" @click="toggleFloatingAd" aria-label="收起">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-        </div>
+<!--      &lt;!&ndash; 展开状态 &ndash;&gt;-->
+<!--      <div v-else class="floating-ad__panel">-->
+<!--        <div class="floating-ad__panel-header">-->
+<!--          <span class="floating-ad__panel-title">🔥 热门推荐</span>-->
+<!--          <button class="floating-ad__collapse" @click="toggleFloatingAd" aria-label="收起">-->
+<!--            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">-->
+<!--              <path d="M19 9l-7 7-7-7"/>-->
+<!--            </svg>-->
+<!--          </button>-->
+<!--        </div>-->
 
-        <div class="floating-ad__list">
-          <div
-            v-for="ad in floatingAd.ads"
-            :key="ad.id"
-            class="floating-ad__item"
-            @click="openFloatingAd(ad)"
-          >
-            <span class="floating-ad__icon">{{ ad.icon }}</span>
-            <div class="floating-ad__info">
-              <div class="floating-ad__header">
-                <span class="floating-ad__title">{{ ad.title }}</span>
-                <span class="floating-ad__tag" :class="`floating-ad__tag--${ad.tagColor}`">
-                  {{ ad.tag }}
-                </span>
-              </div>
-              <span class="floating-ad__subtitle">{{ ad.subtitle }}</span>
-              <span v-if="ad.coupon" class="floating-ad__coupon">优惠码: {{ ad.coupon }}</span>
-            </div>
-            <svg class="floating-ad__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
-          </div>
-        </div>
+<!--        <div class="floating-ad__list">-->
+<!--          <div-->
+<!--            v-for="ad in floatingAd.ads"-->
+<!--            :key="ad.id"-->
+<!--            class="floating-ad__item"-->
+<!--            @click="openFloatingAd(ad)"-->
+<!--          >-->
+<!--            <span class="floating-ad__icon">{{ ad.icon }}</span>-->
+<!--            <div class="floating-ad__info">-->
+<!--              <div class="floating-ad__header">-->
+<!--                <span class="floating-ad__title">{{ ad.title }}</span>-->
+<!--                <span class="floating-ad__tag" :class="`floating-ad__tag&#45;&#45;${ad.tagColor}`">-->
+<!--                  {{ ad.tag }}-->
+<!--                </span>-->
+<!--              </div>-->
+<!--              <span class="floating-ad__subtitle">{{ ad.subtitle }}</span>-->
+<!--              <span v-if="ad.coupon" class="floating-ad__coupon">优惠码: {{ ad.coupon }}</span>-->
+<!--            </div>-->
+<!--            <svg class="floating-ad__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">-->
+<!--              <path d="M9 18l6-6-6-6"/>-->
+<!--            </svg>-->
+<!--          </div>-->
+<!--        </div>-->
 
-        <button class="floating-ad__close-expanded" @click="closeFloatingAd">
-          暂时不需要
-        </button>
-      </div>
+<!--        <button class="floating-ad__close-expanded" @click="closeFloatingAd">-->
+<!--          暂时不需要-->
+<!--        </button>-->
+<!--      </div>-->
 
-      <!-- 轮播指示器 -->
-      <div v-if="!floatingAd.isExpanded" class="floating-ad__indicators">
-        <span
-          v-for="(ad, idx) in floatingAd.ads"
-          :key="ad.id"
-          class="floating-ad__indicator"
-          :class="{ active: idx === floatingAd.currentIndex }"
-          @click.stop="setFloatingAdIndex(idx)"
-        ></span>
-      </div>
-    </div>
+<!--      &lt;!&ndash; 轮播指示器 &ndash;&gt;-->
+<!--      <div v-if="!floatingAd.isExpanded" class="floating-ad__indicators">-->
+<!--        <span-->
+<!--          v-for="(ad, idx) in floatingAd.ads"-->
+<!--          :key="ad.id"-->
+<!--          class="floating-ad__indicator"-->
+<!--          :class="{ active: idx === floatingAd.currentIndex }"-->
+<!--          @click.stop="setFloatingAdIndex(idx)"-->
+<!--        ></span>-->
+<!--      </div>-->
+<!--    </div>-->
 
     <!-- Toast 提示 -->
     <div v-if="toast.show" class="toast" :class="toast.type">
